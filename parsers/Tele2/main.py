@@ -3,29 +3,39 @@ from selenium import webdriver
 import parsers.Tele2.page as page
 from time import sleep
 import re
+import excel.excel_writer
 # from selenium.webdriver.common.keys import Keys
 
 
 class Tele2Parser(unittest.TestCase):
 
-    def setUp(self):
-        self.state_url = input_state()
-        self.date, self.start_date, self.finish_date = input_dates()
-        self.mail = input_mail()
+    def setUp(self, state_url=None, start_month=None, start_day=None, start_year=None, chat=None,
+              finish_month=None, finish_day=None, finish_year=None, filename=None):
+        self.state_url = state_url if state_url is not None else input_state()
+        self.filename = filename
+        self.chat = chat
+
+        if start_month is None:
+            self.date, self.start_date, self.finish_date = input_dates()
+        else:
+            self.start_month, self.start_day, self.start_year = int(start_month), int(start_day), int(start_year)
+            self.finish_month, self.finish_day, self.finish_year = int(finish_month), int(finish_day), int(finish_year)
+
         self.driver = webdriver.Chrome("/usr/local/bin/chromedriver")
         self.driver_2 = webdriver.Chrome("/usr/local/bin/chromedriver")
-        self.driver.get("https://msk.tele2.ru/about/news-list")
-        self.driver_2.get("https://msk.tele2.ru/about/news-list")
+        self.driver.get(state_url)
+        self.driver_2.get(state_url)
 
     def test(self):
-        print("Test\n")
-
         main_page = page.MainPage(self.driver)
         assert main_page.is_title_matches()
 
         sleep(2)
         counter = 1
         last_page = int(self.driver_2.find_element_by_class_name('paging').find_elements_by_tag_name('a')[-2].text)
+        main_dict = {}
+        dict_counter = 1
+        once_in_period_flag = False
 
         while counter <= last_page:
             main_page = page.MainPage(self.driver)
@@ -51,6 +61,8 @@ class Tele2Parser(unittest.TestCase):
             for new in news:
                 self.driver_2.get(new)
                 inner_counter = 0
+                success_flag = False
+
                 while inner_counter < 5:
                     try:
                         date = month_name_to_num(self.driver_2.find_element_by_xpath(
@@ -60,14 +72,37 @@ class Tele2Parser(unittest.TestCase):
                             '//*[@id="root"]/div/div[1]/div/div/div/div/div[2]/div/div/div[1]/div[2]/h1/span').text
                         article = self.driver_2.find_element_by_xpath(
                             '//*[@id="root"]/div/div[1]/div/div/div/div/div[2]/div/div/div[2]/div/div').text
-                        print(date)
-                        print(title)
-                        print('--------------\n', article, '\n-------------\n')
+                        success_flag = True
                         break
                     except:
                         inner_counter += 1
                         sleep(2)
                         continue
+
+                if success_flag:
+                    ans = date_is_in_period(date, start_month=self.start_month, start_day=self.start_day, start_year=self.start_year,
+                                         finish_month=self.finish_month, finish_day=self.finish_day, finish_year=self.finish_year)
+                    if ans:
+                        once_in_period_flag = True
+                        if once_in_period_flag:
+                            print(date)
+                            print(title)
+                            print('----------------------\n')
+                            new_dict = {}
+                            new_dict['Источник'] = 'tele2'
+                            new_dict['Ссылка'] = new
+                            new_dict['Дата'] = date
+                            new_dict['Заголовок'] = title
+                            new_dict['Новость'] = article
+                            main_dict[dict_counter] = new_dict
+                            dict_counter += 1
+                    elif not ans and once_in_period_flag:
+                        excel.excel_writer.main_dict_to_excel(main_dict, file_name=self.filename)
+                        file = 'excel/' + self.filename + '.xlsx'
+                        # return file
+                        return main_dict
+                    else:
+                        pass
 
                 if inner_counter == 3:
                     raise Exception('Couldn\'t find new\'s info')
@@ -80,6 +115,7 @@ class Tele2Parser(unittest.TestCase):
 
     def tearDown(self):
         self.driver.close()
+        self.driver_2.close()
 
 
 def month_name_to_num(date_lst):
@@ -93,6 +129,34 @@ def month_name_to_num(date_lst):
     date = str(date_lst[0] + '.' + date_lst[1] + '.' + date_lst[2])
 
     return date
+
+
+def date_is_in_period(date, start_month, start_day, start_year, finish_month, finish_day, finish_year):
+    news_date_month = int(date.split('.')[1])
+    news_date_day = int(date.split('.')[0])
+    news_date_year = int(date.split('.')[2])
+
+    if start_year < news_date_year < finish_year:
+        return True
+    elif start_year == news_date_year:
+        if start_month < news_date_month:
+            return True
+        elif start_month == news_date_month and start_month < finish_month:
+            if start_day <= news_date_day:
+                return True
+        elif start_month == news_date_month and start_month == finish_month:
+            if start_day <= news_date_day <= finish_day:
+                return True
+    elif finish_year == news_date_year:
+        if news_date_month < finish_month:
+            return True
+        elif news_date_month == finish_month and start_month < finish_month:
+            if news_date_day <= finish_day:
+                return True
+        elif news_date_month == finish_month and start_month == finish_month:
+            if start_day <= news_date_day <= finish_day:
+                return True
+    return False
 
 
 def input_state():
@@ -148,18 +212,6 @@ def input_dates():
         print('Даты были введены некорректно!')
 
     return date, start_date, finish_date
-
-
-def input_mail():
-    while True:
-        mail = input('Введите свою электронную почту: ')
-        if '@' in mail and '.' in mail and 'mail' in mail:
-            break
-        else:
-            print('\nВозможно, вы ввели почту неверно')
-
-    return mail
-
 
 states_dict = {
         'https://msk.tele2.ru/about/news-list': 'Москва и МO',

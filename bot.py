@@ -3,7 +3,6 @@ import os
 import telebot
 from telebot import types
 from flask import Flask, request
-from time import sleep
 
 
 bot = telebot.TeleBot(config.TOKEN)
@@ -14,7 +13,6 @@ months_dict = {'январь': 31, 'февраль': 28, 'март': 31, 'апр
 states_dict = {
         'https://msk.tele2.ru/about/news-list': 'Москва и МO',
         'https://spb.tele2.ru/about/news-list': 'Санкт-Петербург и Лен. область',
-        'https://chelyabinsk.tele2.ru/about/news-list': 'Челябинская область',
         'https://rostov.tele2.ru/about/news-list': 'Ростовская область',
         'https://irkutsk.tele2.ru/about/news-list': 'Иркутская область',
         'https://ekt.tele2.ru/about/news-list': 'Свердловская область',
@@ -50,7 +48,7 @@ states_dict = {
         'https://orel.tele2.ru/about/news-list': 'Орловская область',
         'https://penza.tele2.ru/about/news-list': 'Пензенская область',
         'https://perm.tele2.ru/about/news-list': 'Пермский край',
-        'https://vladivostok.tele2.ru/about/news-lis': 'Приморский край',
+        'https://vladivostok.tele2.ru/about/news-list': 'Приморский край',
         'https://pskov.tele2.ru/about/news-list': 'Псковская область',
         'https://buryatia.tele2.ru/about/news-list': 'Республика Бурятия',
         'https://karelia.tele2.ru/about/news-list': 'Республика Карелия',
@@ -72,7 +70,7 @@ states_dict = {
         'https://izhevsk.tele2.ru/about/news-list': 'Удмуртская Республика',
         'https://uln.tele2.ru/about/news-list': 'Ульяновская область',
         'https://hmao.tele2.ru/about/news-list': 'Ханты-Мансийский АО—Югра',
-        'https://chelyabinsk.tele2.ru/about/news-lis': 'Челябинская область',
+        'https://chelyabinsk.tele2.ru/about/news-list': 'Челябинская область',
         'https://chuvashia.tele2.ru/about/news-list': 'Чувашская Республика',
         'https://yanao.tele2.ru/about/news-list': 'Ямало-Ненецкий АО',
         'https://yar.tele2.ru/about/news-list': 'Ярославская область',
@@ -81,7 +79,6 @@ states_dict = {
 company = None
 state = None
 state_url = None
-mail = None
 date_start_month = None
 date_start_day = None
 date_start_year = None
@@ -142,11 +139,20 @@ def tele2(message):
 
 
 """DATE MESSAGES PROCESSING"""
+
+months_number_dict = {'январь': '1', 'февраль': '2', 'март': '3', 'апрель': '4', 'май': '5', 'июнь': '6',
+                  'июль': '7', 'август': '8', 'сентябрь': '9', 'октябрь': '10', 'ноябрь': '11', 'декабрь': '12'}
+
+
 @bot.message_handler(func=lambda message: message in months_dict.keys() and date_start_month is None, content_types=['text'])
 def process_date_start_month(message):
     global date_start_month
-    date_start_month = message.text
-    answer = bot.send_message(message.chat.id, 'День: ', reply_markup=DateDayKeyboard(date_start_month))
+
+    for key, value in months_number_dict.items():
+        if key == message.text:
+            date_start_month = value
+
+    answer = bot.send_message(message.chat.id, 'День: ', reply_markup=DateDayKeyboard(message.text))
     bot.register_next_step_handler(answer, process_date_start_day)
 
 
@@ -169,8 +175,12 @@ def process_date_start_year(message):
 @bot.message_handler(func=lambda message: message in months_dict.keys() and date_start_month is not None, content_types=['text'])
 def process_date_finish_month(message):
     global date_finish_month
-    date_finish_month = message.text
-    answer = bot.send_message(message.chat.id, 'День: ', reply_markup=DateDayKeyboard(date_finish_month))
+
+    for key, value in months_number_dict.items():
+        if key == message.text:
+            date_finish_month = value
+
+    answer = bot.send_message(message.chat.id, 'День: ', reply_markup=DateDayKeyboard(message.text))
     bot.register_next_step_handler(answer, process_date_finish_day)
 
 
@@ -186,21 +196,12 @@ def process_date_finish_day(message):
 def process_date_finish_year(message):
     global date_finish_year
     date_finish_year = message.text
-    answer = bot.send_message(message.chat.id, 'Введите свою почту(на неё будет отправлено письмо с результатом) ')
-    bot.register_next_step_handler(answer, process_mail)
 
+    global company, state, date_start_month, date_start_day, date_start_year, date_finish_month, date_finish_day
 
-@bot.message_handler(func=lambda message: '@' in message.text, content_types=['text'])
-def process_mail(message):
-    global company, state, mail, date_start_month, date_start_day, \
-        date_start_year, date_finish_month, date_finish_day, date_finish_year
-
-    mail = message.text
-    bot.send_message(message.chat.id, 'Собираем данные воедино...\n')
     msg = str('Составлен следующий запрос: ' + '\nИсточник: ' + company + '\nРегион: ' + state + \
-              '\nНачальная дата: ' + date_start_day + ' ' + date_start_month + '(a/я) ' + date_start_year + \
-              '\nКонечная дата: ' + date_finish_day + ' ' + date_finish_month + '(a/я) ' + date_finish_year + \
-              '\nПочта: ' + mail)
+              '\nНачальная дата: ' + date_start_day + '.' + date_start_month + '.' + date_start_year + \
+              '\nКонечная дата: ' + date_finish_day + '.' + date_finish_month + '.' + date_finish_year)
 
     bot.send_message(message.chat.id, msg)
     answer = bot.send_message(message.chat.id, 'Запрос составлен верно?', reply_markup=YesOrNoKeyboard())
@@ -210,14 +211,22 @@ def process_mail(message):
 @bot.message_handler(func=lambda message: message.text == 'Да, ошибок нет' or message.text == 'Нет, есть ошибка', content_types=['text'])
 def process_checking(message):
     if message.text == 'Да, ошибок нет':
-        bot.send_message(message.chat.id, 'Приступаем к парсингу данных...'
-                                          '\nПо окончании работы файл будет выслан вам на почту, ждите!')
+        bot.send_message(message.chat.id, 'Приступаем к парсингу данных, примерное время ожидания - 5 минут'
+                                          '\nПо окончании работы файл будет отправлен вам, ждите!')
 
+        filename = company + ' ' + state + ' ' + date_start_day + '.' + date_start_month + '.' + date_start_year + '-' + \
+                   date_finish_day + '.' + date_finish_month + '.' + date_finish_year
 
-                #  ПРИКРУЧИВАЕМ СЮДА ПАРСЕР !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+        #  ПРИКРУЧИВАЕМ СЮДА ПАРСЕР !
         import parsers.Tele2.main
-        parse = parsers.Tele2.main.Tele2Parser()
+        parser = parsers.Tele2.main.Tele2Parser()
+        parser.setUp(state_url=state_url, start_month=date_start_month, start_day=date_start_day, start_year=date_start_year, chat=message.chat,
+                    finish_month=date_finish_month, finish_day=date_finish_day, finish_year=date_finish_year, filename=filename)
+        file = parser.test()
+        parser.tearDown()
+
+        bot.send_message(message.chat.id, str(file))
+        # bot.send_document(message.chat.id, data=file)
 
     elif message.text == 'Нет, есть ошибка':
         bot.send_message(message.chat.id, 'Тогда начнем заново и повнимательнее'
