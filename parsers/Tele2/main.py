@@ -1,10 +1,11 @@
 import unittest
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 import parsers.Tele2.page as page
 from time import sleep
 import re
 import excel.excel_writer
-# from selenium.webdriver.common.keys import Keys
+import os.path
 
 
 class Tele2Parser(unittest.TestCase):
@@ -21,101 +22,128 @@ class Tele2Parser(unittest.TestCase):
             self.start_month, self.start_day, self.start_year = int(start_month), int(start_day), int(start_year)
             self.finish_month, self.finish_day, self.finish_year = int(finish_month), int(finish_day), int(finish_year)
 
-        self.driver = webdriver.Chrome("/usr/local/bin/chromedriver")
-        self.driver_2 = webdriver.Chrome("/usr/local/bin/chromedriver")
+        option = Options()
+        option.add_argument("--disable-infobars")
+        option.add_argument("start-maximized")
+        option.add_argument("--disable-extensions")  # Pass the argument 1 to allow and 2 to block
+        option.add_experimental_option("prefs", {"profile.default_content_setting_values.notifications": 2})
+
+        """ДЛЯ MACOS"""
+        self.driver = webdriver.Chrome(executable_path="/usr/local/bin/chromedriver", chrome_options=option)
+        self.driver_2 = webdriver.Chrome(executable_path="/usr/local/bin/chromedriver", chrome_options=option)
+
+        """ДЛЯ WINDOWS"""
+        # self.driver = webdriver.Chrome(executable_path=str(os.path) + "chromedriver", chrome_options=option)
+        # self.driver_2 = webdriver.Chrome(executable_path=str(os.path) + "chromedriver", chrome_options=option)
+
         self.driver.get(state_url)
-        self.driver_2.get(state_url)
 
     def test(self):
         main_page = page.MainPage(self.driver)
         assert main_page.is_title_matches()
 
-        sleep(2)
-        counter = 1
-        last_page = int(self.driver_2.find_element_by_class_name('paging').find_elements_by_tag_name('a')[-2].text)
+        print('----------START----------\n\n')
+        sleep(4)
+        page_counter = 1
+        last_page = int(self.driver.find_element_by_class_name('paging').find_elements_by_tag_name('a')[-2].text)
         main_dict = {}
         dict_counter = 1
         once_in_period_flag = False
 
-        while counter <= last_page:
+        while page_counter <= last_page:
             main_page = page.MainPage(self.driver)
 
-            counter_2 = 0
-            while counter_2 < 5:
-                try:
-                    links = main_page.search_links
-                    break
-                except:
-                    counter_2 += 1
-                    sleep(3)
-                    continue
+            links = search_links_on_page(page=main_page)  # Находим ссылки на странице (их 10 по умолчанию)
 
-            if counter_2 == 5:
-                raise Exception('Couldn\'t find links on page')
+            news_links = [link.get_attribute('href') for link in links]
 
-            news = []
-
-            for link in links:
-                news.append(link.get_attribute('href'))
-
-            for new in news:
+            for new in news_links:
                 self.driver_2.get(new)
-                inner_counter = 0
                 success_flag = False
 
-                while inner_counter < 5:
-                    try:
-                        date = month_name_to_num(self.driver_2.find_element_by_xpath(
-                            '//*[@id="root"]/div/div[1]/div/div/div/div/div[2]/div/div/div[1]/div[2]/span').text.split(
-                            ' '))
-                        title = self.driver_2.find_element_by_xpath(
-                            '//*[@id="root"]/div/div[1]/div/div/div/div/div[2]/div/div/div[1]/div[2]/h1/span').text
-                        article = self.driver_2.find_element_by_xpath(
-                            '//*[@id="root"]/div/div[1]/div/div/div/div/div[2]/div/div/div[2]/div/div').text
-                        success_flag = True
-                        break
-                    except:
-                        inner_counter += 1
-                        sleep(2)
-                        continue
+                try:
+                    date, title, article, success_flag = scrape_info(self, success_flag)  # Парсим информацию по ссылке
 
-                if success_flag:
-                    ans = date_is_in_period(date, start_month=self.start_month, start_day=self.start_day, start_year=self.start_year,
-                                         finish_month=self.finish_month, finish_day=self.finish_day, finish_year=self.finish_year)
-                    if ans:
-                        once_in_period_flag = True
-                        if once_in_period_flag:
-                            print(date)
-                            print(title)
-                            print('----------------------\n')
-                            new_dict = {}
-                            new_dict['Источник'] = 'tele2'
-                            new_dict['Ссылка'] = new
-                            new_dict['Дата'] = date
-                            new_dict['Заголовок'] = title
-                            new_dict['Новость'] = article
-                            main_dict[dict_counter] = new_dict
-                            dict_counter += 1
-                    elif not ans and once_in_period_flag:
-                        excel.excel_writer.main_dict_to_excel(main_dict, file_name=self.filename)
-                        file = 'excel/' + self.filename + '.xlsx'
-                        # return file
-                        return main_dict
-                    else:
-                        pass
+                    if success_flag:  # Спарсили, проверяем дату новости на вхождение в указанный период
+                        ans = date_is_in_period(date, start_month=self.start_month, start_day=self.start_day, start_year=self.start_year,
+                                                finish_month=self.finish_month, finish_day=self.finish_day, finish_year=self.finish_year)
+                        if ans:  # Если входит, выводим в консоль дату с заголовком и вносим полную информацию в словарь
+                            once_in_period_flag = True  # Дата вошла в период
+                            if once_in_period_flag:
+                                print(date)
+                                print(title)
+                                print('----------------------\n')
 
-                if inner_counter == 3:
-                    raise Exception('Couldn\'t find new\'s info')
+                                new_dict = {}
+                                new_dict['Источник'] = 'tele2'
+                                new_dict['Ссылка'] = new
+                                new_dict['Дата'] = date
+                                new_dict['Заголовок'] = title
+                                new_dict['Новость'] = article
+                                main_dict[dict_counter] = new_dict
+                                dict_counter += 1
+                        elif not ans and once_in_period_flag:  # Если дата очередной новости не входит в период, но флаг уже
+                            file = 'excel/' + self.filename + '.xlsx'  # был поднят, то заканчиваем парсинг, вносим в эксель
+                            excel.excel_writer.main_dict_to_excel(main_dict, file_name=file)
+                            return file
+                        else:
+                            raise Exception('No news in the period found')
+                except:
+                    pass
 
-            if counter < last_page:
-                self.driver.find_element_by_id('pagingNextLink').click()
-                counter += 1
+            if page_counter < last_page:
+                try:
+                    self.driver.find_element_by_id('pagingNextLink').click()  # Переходим по кнопке пагинации
+                except:                                                       # на следующие 10 новостей
+                    raise Exception('Notification alert intercepted the process')
+                page_counter += 1
             else:
                 break
 
     def tearDown(self):
+        print('-----------JOB-DONE----------')
         self.driver.close()
         self.driver_2.close()
+
+
+def search_links_on_page(page):
+    counter = 0
+    while counter < 5:
+        try:
+            links = page.search_links
+            break
+        except:
+            counter += 1
+            sleep(3)
+            continue
+
+    if counter == 5:
+        raise Exception('Couldn\'t find links on page')
+
+    return links
+
+
+def scrape_info(self, success_flag):
+    counter = 0
+    while counter < 5:
+        try:
+            date = month_name_to_num(self.driver_2.find_element_by_xpath(
+                '//*[@id="root"]/div/div[1]/div/div/div/div/div[2]/div/div/div[1]/div[2]/span').text.split(
+                ' '))
+            title = self.driver_2.find_element_by_xpath(
+                '//*[@id="root"]/div/div[1]/div/div/div/div/div[2]/div/div/div[1]/div[2]/h1/span').text
+            article = self.driver_2.find_element_by_xpath(
+                '//*[@id="root"]/div/div[1]/div/div/div/div/div[2]/div/div/div[2]/div/div').text
+            success_flag = True
+            return date, title, article, success_flag
+        except:
+            counter += 1
+            sleep(2)
+            continue
+
+    if counter == 5:
+        pass
+        # raise Exception('Couldn\'t find new\'s info')
 
 
 def month_name_to_num(date_lst):
@@ -132,12 +160,27 @@ def month_name_to_num(date_lst):
 
 
 def date_is_in_period(date, start_month, start_day, start_year, finish_month, finish_day, finish_year):
-    news_date_month = int(date.split('.')[1])
     news_date_day = int(date.split('.')[0])
+    news_date_month = int(date.split('.')[1])
     news_date_year = int(date.split('.')[2])
 
     if start_year < news_date_year < finish_year:
         return True
+    elif start_year == news_date_year == finish_year:
+        if start_month < news_date_month < finish_month:
+            return True
+        elif start_month <= news_date_month <= finish_month:
+            if start_month == news_date_month == finish_month:
+                if start_day <= news_date_day <= finish_day:
+                    return True
+            elif start_month == news_date_month:
+                if start_day <= news_date_day:
+                    return True
+            elif finish_month == news_date_month:
+                if finish_day >= news_date_day:
+                    return True
+            else:
+                return True
     elif start_year == news_date_year:
         if start_month < news_date_month:
             return True
@@ -156,6 +199,7 @@ def date_is_in_period(date, start_month, start_day, start_year, finish_month, fi
         elif news_date_month == finish_month and start_month == finish_month:
             if start_day <= news_date_day <= finish_day:
                 return True
+
     return False
 
 

@@ -1,4 +1,3 @@
-from parsers.Tele2.locator import *
 from parsers.Tele2.element import BasePageElement
 from selenium.webdriver.common.by import By
 

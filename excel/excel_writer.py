@@ -2,9 +2,13 @@ import xlsxwriter
 
 
 def main_dict_to_excel(main_dict, file_name):
-    workbook = xlsxwriter.Workbook('excel/' + file_name + '.xlsx')
+    workbook = xlsxwriter.Workbook(file_name)
     worksheet = workbook.add_worksheet()
 
+    worksheet.set_column('A:B', 7.5)  # Column A:B width
+    worksheet.set_column('C:C', 9)  # Column C width
+    worksheet.set_column('D:D', 60)  # Column D width
+    worksheet.set_column('E:E', 250)  # Column E width
     worksheet.write(0, 0, 'Источник')
     worksheet.write(0, 1, 'Ссылка')
     worksheet.write(0, 2, 'Дата')
