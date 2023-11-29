@@ -46,8 +46,10 @@ class Tele2Parser(unittest.TestCase):
         #     os.path) + "chromedriver", chrome_options=option)
         # self.driver_2 = webdriver.Chrome(executable_path=str(
         #     os.path) + "chromedriver", chrome_options=option)
-        self.driver = webdriver.Chrome(ChromeDriverManager().install())
-        self.driver_2 = webdriver.Chrome(ChromeDriverManager().install())
+        self.driver = webdriver.Chrome(
+            ChromeDriverManager().install(), chrome_options=option)
+        self.driver_2 = webdriver.Chrome(
+            ChromeDriverManager().install(), chrome_options=option)
 
         self.driver.get(state_url)
 
