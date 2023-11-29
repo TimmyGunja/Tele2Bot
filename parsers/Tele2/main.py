@@ -19,22 +19,32 @@ class Tele2Parser(unittest.TestCase):
         if start_month is None:
             self.date, self.start_date, self.finish_date = input_dates()
         else:
-            self.start_month, self.start_day, self.start_year = int(start_month), int(start_day), int(start_year)
-            self.finish_month, self.finish_day, self.finish_year = int(finish_month), int(finish_day), int(finish_year)
+            self.start_month, self.start_day, self.start_year = int(
+                start_month), int(start_day), int(start_year)
+            self.finish_month, self.finish_day, self.finish_year = int(
+                finish_month), int(finish_day), int(finish_year)
 
         option = Options()
         option.add_argument("--disable-infobars")
         option.add_argument("start-maximized")
-        option.add_argument("--disable-extensions")  # Pass the argument 1 to allow and 2 to block
-        option.add_experimental_option("prefs", {"profile.default_content_setting_values.notifications": 2})
+        # Pass the argument 1 to allow and 2 to block
+        option.add_argument("--disable-extensions")
+        option.add_experimental_option(
+            "prefs", {"profile.default_content_setting_values.notifications": 2})
 
         """ДЛЯ MACOS"""
-        self.driver = webdriver.Chrome(executable_path="/usr/local/bin/chromedriver", chrome_options=option)
-        self.driver_2 = webdriver.Chrome(executable_path="/usr/local/bin/chromedriver", chrome_options=option)
+        # self.driver = webdriver.Chrome(executable_path="/usr/local/bin/chromedriver", chrome_options=option)
+        # self.driver_2 = webdriver.Chrome(executable_path="/usr/local/bin/chromedriver", chrome_options=option)
 
         """ДЛЯ WINDOWS"""
         # self.driver = webdriver.Chrome(executable_path=str(os.path) + "chromedriver", chrome_options=option)
         # self.driver_2 = webdriver.Chrome(executable_path=str(os.path) + "chromedriver", chrome_options=option)
+
+        """ДЛЯ ОБЛАКА (Railway)"""
+        self.driver = webdriver.Chrome(executable_path=str(
+            os.path) + "chromedriver", chrome_options=option)
+        self.driver_2 = webdriver.Chrome(executable_path=str(
+            os.path) + "chromedriver", chrome_options=option)
 
         self.driver.get(state_url)
 
@@ -45,7 +55,8 @@ class Tele2Parser(unittest.TestCase):
         print('----------START----------\n\n')
         sleep(4)
         page_counter = 1
-        last_page = int(self.driver.find_element_by_class_name('paging').find_elements_by_tag_name('a')[-2].text)
+        last_page = int(self.driver.find_element_by_class_name(
+            'paging').find_elements_by_tag_name('a')[-2].text)
         main_dict = {}
         dict_counter = 1
         once_in_period_flag = False
@@ -53,7 +64,8 @@ class Tele2Parser(unittest.TestCase):
         while page_counter <= last_page:
             main_page = page.MainPage(self.driver)
 
-            links = search_links_on_page(page=main_page)  # Находим ссылки на странице (их 10 по умолчанию)
+            # Находим ссылки на странице (их 10 по умолчанию)
+            links = search_links_on_page(page=main_page)
 
             news_links = [link.get_attribute('href') for link in links]
 
@@ -62,7 +74,8 @@ class Tele2Parser(unittest.TestCase):
                 success_flag = False
 
                 try:
-                    date, title, article, success_flag = scrape_info(self, success_flag)  # Парсим информацию по ссылке
+                    date, title, article, success_flag = scrape_info(
+                        self, success_flag)  # Парсим информацию по ссылке
 
                     if success_flag:  # Спарсили, проверяем дату новости на вхождение в указанный период
                         ans = date_is_in_period(date, start_month=self.start_month, start_day=self.start_day, start_year=self.start_year,
@@ -83,8 +96,10 @@ class Tele2Parser(unittest.TestCase):
                                 main_dict[dict_counter] = new_dict
                                 dict_counter += 1
                         elif not ans and once_in_period_flag:  # Если дата очередной новости не входит в период, но флаг уже
-                            file = 'excel/' + self.filename + '.xlsx'  # был поднят, то заканчиваем парсинг, вносим в эксель
-                            excel.excel_writer.main_dict_to_excel(main_dict, file_name=file)
+                            # был поднят, то заканчиваем парсинг, вносим в эксель
+                            file = 'excel/' + self.filename + '.xlsx'
+                            excel.excel_writer.main_dict_to_excel(
+                                main_dict, file_name=file)
                             return file
                         else:
                             raise Exception('No news in the period found')
@@ -93,9 +108,11 @@ class Tele2Parser(unittest.TestCase):
 
             if page_counter < last_page:
                 try:
-                    self.driver.find_element_by_id('pagingNextLink').click()  # Переходим по кнопке пагинации
+                    # Переходим по кнопке пагинации
+                    self.driver.find_element_by_id('pagingNextLink').click()
                 except:                                                       # на следующие 10 новостей
-                    raise Exception('Notification alert intercepted the process')
+                    raise Exception(
+                        'Notification alert intercepted the process')
                 page_counter += 1
             else:
                 break
@@ -210,7 +227,8 @@ def input_state():
 
     flag = False
     while True:
-        state_choice = int(input('\nВыберите номер нужного вам региона из списка выше: '))
+        state_choice = int(
+            input('\nВыберите номер нужного вам региона из списка выше: '))
 
         for i, st in enumerate(states_dict.keys(), start=1):
             if i == state_choice:
@@ -227,10 +245,12 @@ def input_state():
 
 def input_dates():
     while True:
-        pat = re.compile('[0123]\d{1}\.[01]\d{1}\.20\d{2}-[0123]\d{1}\.[01]\d{1}\.20\d{2}')
+        pat = re.compile(
+            '[0123]\d{1}\.[01]\d{1}\.20\d{2}-[0123]\d{1}\.[01]\d{1}\.20\d{2}')
 
         while True:
-            date = input('Введите поисковый период в формате дд.мм.гг-дд.мм.гг (например, 03.07.2019-26.11.2020): ')
+            date = input(
+                'Введите поисковый период в формате дд.мм.гг-дд.мм.гг (например, 03.07.2019-26.11.2020): ')
             if pat.fullmatch(date):
                 break
             else:
@@ -257,72 +277,73 @@ def input_dates():
 
     return date, start_date, finish_date
 
+
 states_dict = {
-        'https://msk.tele2.ru/about/news-list': 'Москва и МO',
-        'https://spb.tele2.ru/about/news-list': 'Санкт-Петербург и Ленинградская область',
-        'https://chelyabinsk.tele2.ru/about/news-list': 'Челябинская область',
-        'https://rostov.tele2.ru/about/news-list': 'Ростовская область',
-        'https://irkutsk.tele2.ru/about/news-list': 'Иркутская область',
-        'https://ekt.tele2.ru/about/news-list': 'Свердловская область',
-        'https://nnov.tele2.ru/about/news-list': 'Нижегородская область',
-        'https://barnaul.tele2.ru/about/news-list': 'Алтайский край',
-        'https://arh.tele2.ru/about/news-list': 'Архангельская область',
-        'https://belgorod.tele2.ru/about/news-list': 'Белгородская область',
-        'https://bryansk.tele2.ru/about/news-list': 'Брянская область',
-        'https://vladimir.tele2.ru/about/news-list': 'Владимирская область',
-        'https://volgograd.tele2.ru/about/news-list': 'Волгоградская область',
-        'https://vologda.tele2.ru/about/news-list': 'Вологодская область',
-        'https://voronezh.tele2.ru/about/news-list': 'Воронежская область',
-        'https://eao.tele2.ru/about/news-list': 'Еврейская АО',
-        'https://ivanovo.tele2.ru/about/news-list': 'Ивановская область',
-        'https://kaliningrad.tele2.ru/about/news-list': 'Калининградская область',
-        'https://kaluga.tele2.ru/about/news-list': 'Калужская область',
-        'https://kamchatka.tele2.ru/about/news-list': 'Камчатский край',
-        'https://kuzbass.tele2.ru/about/news-list': 'Кемеровская область',
-        'https://kirov.tele2.ru/about/news-list': 'Кировская область',
-        'https://kostroma.tele2.ru/about/news-list': 'Костромская область',
-        'https://krasnodar.tele2.ru/about/news-list': 'Краснодарский край и Адыгея',
-        'https://krasnoyarsk.tele2.ru/about/news-list': 'Красноярский край (кроме Норильска)',
-        'https://norilsk.tele2.ru/about/news-list': 'Красноярский край (Норильск)',
-        'https://kurgan.tele2.ru/about/news-list': 'Курганская область',
-        'https://kursk.tele2.ru/about/news-list': 'Курская область',
-        'https://lipetsk.tele2.ru/about/news-list': 'Липецкая область',
-        'https://magadan.tele2.ru/about/news-list': 'Магаданская область',
-        'https://murmansk.tele2.ru/about/news-list': 'Мурманская область',
-        'https://novgorod.tele2.ru/about/news-list': 'Новгородская область',
-        'https://novosibirsk.tele2.ru/about/news-list': 'Новосибирская область',
-        'https://omsk.tele2.ru/about/news-list': 'Омская область',
-        'https://orenburg.tele2.ru/about/news-list': 'Оренбургская область',
-        'https://orel.tele2.ru/about/news-list': 'Орловская область',
-        'https://penza.tele2.ru/about/news-list': 'Пензенская область',
-        'https://perm.tele2.ru/about/news-list': 'Пермский край',
-        'https://vladivostok.tele2.ru/about/news-lis': 'Приморский край',
-        'https://pskov.tele2.ru/about/news-list': 'Псковская область',
-        'https://buryatia.tele2.ru/about/news-list': 'Республика Бурятия',
-        'https://karelia.tele2.ru/about/news-list': 'Республика Карелия',
-        'https://komi.tele2.ru/about/news-list': 'Республика Коми',
-        'https://mariel.tele2.ru/about/news-list': 'Республика Марий Эл',
-        'https://mordovia.tele2.ru/about/news-list': 'Республика Мордовия',
-        'https://kazan.tele2.ru/about/news-list': 'Республика Татарстан',
-        'https://khakasia.tele2.ru/about/news-list': 'Республика Хакасия и Республика Тыва',
-        'https://ryazan.tele2.ru/about/news-list': 'Рязанская область',
-        'https://samara.tele2.ru/about/news-list': 'Самарская область',
-        'https://saratov.tele2.ru/about/news-list': 'Саратовская область',
-        'https://sakhalin.tele2.ru/about/news-list': 'Сахалинская область',
-        'https://smolensk.tele2.ru/about/news-list': 'Смоленская область',
-        'https://tambov.tele2.ru/about/news-list': 'Тамбовская область',
-        'https://tver.tele2.ru/about/news-list': 'Тверская область',
-        'https://tomsk.tele2.ru/about/news-list': 'Томская область',
-        'https://tula.tele2.ru/about/news-list': 'Тульская область',
-        'https://tyumen.tele2.ru/about/news-list': 'Тюменская область',
-        'https://izhevsk.tele2.ru/about/news-list': 'Удмуртская Республика',
-        'https://uln.tele2.ru/about/news-list': 'Ульяновская область',
-        'https://hmao.tele2.ru/about/news-list': 'Ханты-Мансийский АО—Югра',
-        'https://chelyabinsk.tele2.ru/about/news-lis': 'Челябинская область',
-        'https://chuvashia.tele2.ru/about/news-list': 'Чувашская Республика',
-        'https://yanao.tele2.ru/about/news-list': 'Ямало-Ненецкий АО',
-        'https://yar.tele2.ru/about/news-list': 'Ярославская область',
-        }
+    'https://msk.tele2.ru/about/news-list': 'Москва и МO',
+    'https://spb.tele2.ru/about/news-list': 'Санкт-Петербург и Ленинградская область',
+    'https://chelyabinsk.tele2.ru/about/news-list': 'Челябинская область',
+    'https://rostov.tele2.ru/about/news-list': 'Ростовская область',
+    'https://irkutsk.tele2.ru/about/news-list': 'Иркутская область',
+    'https://ekt.tele2.ru/about/news-list': 'Свердловская область',
+    'https://nnov.tele2.ru/about/news-list': 'Нижегородская область',
+    'https://barnaul.tele2.ru/about/news-list': 'Алтайский край',
+    'https://arh.tele2.ru/about/news-list': 'Архангельская область',
+    'https://belgorod.tele2.ru/about/news-list': 'Белгородская область',
+    'https://bryansk.tele2.ru/about/news-list': 'Брянская область',
+    'https://vladimir.tele2.ru/about/news-list': 'Владимирская область',
+    'https://volgograd.tele2.ru/about/news-list': 'Волгоградская область',
+    'https://vologda.tele2.ru/about/news-list': 'Вологодская область',
+    'https://voronezh.tele2.ru/about/news-list': 'Воронежская область',
+    'https://eao.tele2.ru/about/news-list': 'Еврейская АО',
+    'https://ivanovo.tele2.ru/about/news-list': 'Ивановская область',
+    'https://kaliningrad.tele2.ru/about/news-list': 'Калининградская область',
+    'https://kaluga.tele2.ru/about/news-list': 'Калужская область',
+    'https://kamchatka.tele2.ru/about/news-list': 'Камчатский край',
+    'https://kuzbass.tele2.ru/about/news-list': 'Кемеровская область',
+    'https://kirov.tele2.ru/about/news-list': 'Кировская область',
+    'https://kostroma.tele2.ru/about/news-list': 'Костромская область',
+    'https://krasnodar.tele2.ru/about/news-list': 'Краснодарский край и Адыгея',
+    'https://krasnoyarsk.tele2.ru/about/news-list': 'Красноярский край (кроме Норильска)',
+    'https://norilsk.tele2.ru/about/news-list': 'Красноярский край (Норильск)',
+    'https://kurgan.tele2.ru/about/news-list': 'Курганская область',
+    'https://kursk.tele2.ru/about/news-list': 'Курская область',
+    'https://lipetsk.tele2.ru/about/news-list': 'Липецкая область',
+    'https://magadan.tele2.ru/about/news-list': 'Магаданская область',
+    'https://murmansk.tele2.ru/about/news-list': 'Мурманская область',
+    'https://novgorod.tele2.ru/about/news-list': 'Новгородская область',
+    'https://novosibirsk.tele2.ru/about/news-list': 'Новосибирская область',
+    'https://omsk.tele2.ru/about/news-list': 'Омская область',
+    'https://orenburg.tele2.ru/about/news-list': 'Оренбургская область',
+    'https://orel.tele2.ru/about/news-list': 'Орловская область',
+    'https://penza.tele2.ru/about/news-list': 'Пензенская область',
+    'https://perm.tele2.ru/about/news-list': 'Пермский край',
+    'https://vladivostok.tele2.ru/about/news-lis': 'Приморский край',
+    'https://pskov.tele2.ru/about/news-list': 'Псковская область',
+    'https://buryatia.tele2.ru/about/news-list': 'Республика Бурятия',
+    'https://karelia.tele2.ru/about/news-list': 'Республика Карелия',
+    'https://komi.tele2.ru/about/news-list': 'Республика Коми',
+    'https://mariel.tele2.ru/about/news-list': 'Республика Марий Эл',
+    'https://mordovia.tele2.ru/about/news-list': 'Республика Мордовия',
+    'https://kazan.tele2.ru/about/news-list': 'Республика Татарстан',
+    'https://khakasia.tele2.ru/about/news-list': 'Республика Хакасия и Республика Тыва',
+    'https://ryazan.tele2.ru/about/news-list': 'Рязанская область',
+    'https://samara.tele2.ru/about/news-list': 'Самарская область',
+    'https://saratov.tele2.ru/about/news-list': 'Саратовская область',
+    'https://sakhalin.tele2.ru/about/news-list': 'Сахалинская область',
+    'https://smolensk.tele2.ru/about/news-list': 'Смоленская область',
+    'https://tambov.tele2.ru/about/news-list': 'Тамбовская область',
+    'https://tver.tele2.ru/about/news-list': 'Тверская область',
+    'https://tomsk.tele2.ru/about/news-list': 'Томская область',
+    'https://tula.tele2.ru/about/news-list': 'Тульская область',
+    'https://tyumen.tele2.ru/about/news-list': 'Тюменская область',
+    'https://izhevsk.tele2.ru/about/news-list': 'Удмуртская Республика',
+    'https://uln.tele2.ru/about/news-list': 'Ульяновская область',
+    'https://hmao.tele2.ru/about/news-list': 'Ханты-Мансийский АО—Югра',
+    'https://chelyabinsk.tele2.ru/about/news-lis': 'Челябинская область',
+    'https://chuvashia.tele2.ru/about/news-list': 'Чувашская Республика',
+    'https://yanao.tele2.ru/about/news-list': 'Ямало-Ненецкий АО',
+    'https://yar.tele2.ru/about/news-list': 'Ярославская область',
+}
 
 if __name__ == "__main__":
     unittest.main()
