@@ -1,6 +1,7 @@
 import unittest
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 import parsers.Tele2.page as page
 from time import sleep
 import re
@@ -41,10 +42,12 @@ class Tele2Parser(unittest.TestCase):
         # self.driver_2 = webdriver.Chrome(executable_path=str(os.path) + "chromedriver", chrome_options=option)
 
         """ДЛЯ ОБЛАКА (Railway)"""
-        self.driver = webdriver.Chrome(executable_path=str(
-            os.path) + "chromedriver", chrome_options=option)
-        self.driver_2 = webdriver.Chrome(executable_path=str(
-            os.path) + "chromedriver", chrome_options=option)
+        # self.driver = webdriver.Chrome(executable_path=str(
+        #     os.path) + "chromedriver", chrome_options=option)
+        # self.driver_2 = webdriver.Chrome(executable_path=str(
+        #     os.path) + "chromedriver", chrome_options=option)
+        self.driver = webdriver.Chrome(ChromeDriverManager().install())
+        self.driver_2 = webdriver.Chrome(ChromeDriverManager().install())
 
         self.driver.get(state_url)
 
